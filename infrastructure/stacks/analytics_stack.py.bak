@@ -1,0 +1,50 @@
+from aws_cdk import (
+    Stack,
+    aws_athena as athena,
+    aws_s3 as s3,
+    aws_iam as iam,
+    Duration,
+)
+from constructs import Construct
+
+class AnalyticsStack(Stack):
+    """Creates infrastructure for analytical queries"""
+
+    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
+        super().__init__(scope, construct_id, **kwargs)
+
+        # Create Athena workgroup for analytical queries
+        athena_workgroup = athena.CfnWorkGroup(
+            self, "AnalyticsWorkGroup",
+            name="irish-energy-analytics",
+            state="ENABLED",
+            configuration={
+                "enforce_work_group_configuration": True,
+                "result_configuration": {
+                    "output_location": f"s3://irish-energy-analytics-results-{self.account}-{self.region}/"
+                },
+                "publish_cloud_watch_metrics": True,
+                "bytes_scanned_cutoff_per_query": 10737418240,  # 10GB limit
+            }
+        )
+
+        # Create results bucket for Athena queries
+        results_bucket = s3.Bucket(
+            self, "AthenaResultsBucket",
+            bucket_name=f"irish-energy-analytics-results-{self.account}-{self.region}",
+            versioned=True,
+            removal_policy=RemovalPolicy.RETAIN,
+            auto_delete_objects=False,
+            encryption=s3.BucketEncryption.S3_MANAGED,
+            block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
+            lifecycle_rules=[
+                s3.LifecycleRule(
+                    id="DeleteOldResults",
+                    expiration=Duration.days(30),
+                    enabled=True
+                )
+            ]
+        )
+
+        # Add permissions for Athena to access data buckets
+        athena_workgroup.add_depends_on(results_bucket)

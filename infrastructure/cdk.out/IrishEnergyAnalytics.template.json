@@ -1,0 +1,114 @@
+{
+ "Resources": {
+  "AthenaResultsBucket879938FA": {
+   "Type": "AWS::S3::Bucket",
+   "Properties": {
+    "BucketEncryption": {
+     "ServerSideEncryptionConfiguration": [
+      {
+       "ServerSideEncryptionByDefault": {
+        "SSEAlgorithm": "AES256"
+       }
+      }
+     ]
+    },
+    "BucketName": "irish-energy-analytics-results-851725545966-eu-north-1",
+    "LifecycleConfiguration": {
+     "Rules": [
+      {
+       "ExpirationInDays": 30,
+       "Id": "DeleteOldResults",
+       "Status": "Enabled"
+      }
+     ]
+    },
+    "PublicAccessBlockConfiguration": {
+     "BlockPublicAcls": true,
+     "BlockPublicPolicy": true,
+     "IgnorePublicAcls": true,
+     "RestrictPublicBuckets": true
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "IrishEnergyAnalytics/AthenaResultsBucket/Resource"
+   }
+  },
+  "AnalyticsWorkGroup": {
+   "Type": "AWS::Athena::WorkGroup",
+   "Properties": {
+    "Name": "irish-energy-analytics",
+    "State": "ENABLED",
+    "WorkGroupConfiguration": {
+     "BytesScannedCutoffPerQuery": 10485760,
+     "EnforceWorkGroupConfiguration": true,
+     "PublishCloudWatchMetricsEnabled": true,
+     "ResultConfiguration": {
+      "OutputLocation": {
+       "Fn::Join": [
+        "",
+        [
+         "s3://",
+         {
+          "Ref": "AthenaResultsBucket879938FA"
+         },
+         "/"
+        ]
+       ]
+      }
+     }
+    }
+   },
+   "DependsOn": [
+    "AthenaResultsBucket879938FA"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "IrishEnergyAnalytics/AnalyticsWorkGroup"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/zPSMzI31TNQTCwv1k1OydbNyUzSqw4uSUzO1kksL46vLjbWq3YqTc5OLdFxTsuDsGp1EksyUvMS9ZzT8sLzi7Ldi/JLC2prdQIqSzLy8/SN9QxN9CwUs4ozM3WLSvNKMnNT9YIgNAAUJCQPbgAAAA=="
+   },
+   "Metadata": {
+    "aws:cdk:path": "IrishEnergyAnalytics/CDKMetadata/Default"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

@@ -1,0 +1,223 @@
+{
+  "/IrishEnergyIngestion": [
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...jsii runtime, node internals...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    },
+    {
+      "type": "aws:cdk:templateFile",
+      "data": "IrishEnergyIngestion.template.json"
+    }
+  ],
+  "/IrishEnergyIngestion/BootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "BootstrapVersion"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...aws-cdk-lib...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/IrishEnergyIngestion/CheckBootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CheckBootstrapVersion"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...aws-cdk-lib...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/IrishEnergyIngestion/IngestionRole/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "IngestionRoleFC2D3E97"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...aws-cdk-lib, jsii runtime, node internals...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/IrishEnergyIngestion/TransformationRole/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "TransformationRoleE86D7364"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...aws-cdk-lib, jsii runtime, node internals...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/IrishEnergyIngestion/EirGridIngestionFunction/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "EirGridIngestionFunction0D6B6CDD"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...aws-cdk-lib, jsii runtime, node internals...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/IrishEnergyIngestion/OpenMeteoIngestionFunction/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "OpenMeteoIngestionFunction50D695D7"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...aws-cdk-lib, jsii runtime, node internals...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/IrishEnergyIngestion/PandasPyArrowLayer/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "PandasPyArrowLayerE9BA9DDA"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...aws-cdk-lib, jsii runtime, node internals...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/IrishEnergyIngestion/DataTransformationFunction/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DataTransformationFunctionF02D64B4"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...aws-cdk-lib, jsii runtime, node internals...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/IrishEnergyIngestion/TransformationTriggerRule/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "TransformationTriggerRuleA8913BE0"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...aws-cdk-lib, jsii runtime, node internals...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/IrishEnergyIngestion/TransformationTriggerRule/AllowEventRuleIrishEnergyIngestionDataTransformationFunctionA2345477": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "TransformationTriggerRuleAllowEventRuleIrishEnergyIngestionDataTransformationFunctionA23454779FDF9FB4"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...aws-cdk-lib, jsii runtime...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/IrishEnergyIngestion/DailyIngestionSchedule/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DailyIngestionSchedule9CD41305"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...aws-cdk-lib, jsii runtime, node internals...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/IrishEnergyIngestion/DailyIngestionSchedule/AllowEventRuleIrishEnergyIngestionEirGridIngestionFunction39BEEB3A": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DailyIngestionScheduleAllowEventRuleIrishEnergyIngestionEirGridIngestionFunction39BEEB3A2D4B1FA3"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...aws-cdk-lib, jsii runtime...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/IrishEnergyIngestion/DailyIngestionSchedule/AllowEventRuleIrishEnergyIngestionOpenMeteoIngestionFunction7E7FC623": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DailyIngestionScheduleAllowEventRuleIrishEnergyIngestionOpenMeteoIngestionFunction7E7FC623F9C9E4D6"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...aws-cdk-lib, jsii runtime...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/IrishEnergyIngestion/CDKMetadata/Default": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CDKMetadata"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...aws-cdk-lib, jsii runtime...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/IrishEnergyIngestion/IngestionRole/DefaultPolicy/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "IngestionRoleDefaultPolicyC15DBB5F"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...aws-cdk-lib, jsii runtime...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/IrishEnergyIngestion/TransformationRole/DefaultPolicy/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "TransformationRoleDefaultPolicyF20AE947"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...aws-cdk-lib, jsii runtime...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ]
+}

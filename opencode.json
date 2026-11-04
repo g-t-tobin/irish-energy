@@ -1,0 +1,32 @@
+
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "bash": {
+      "*": "ask",
+
+      "pwd": "allow",
+      "ls *": "allow",
+      "git status *": "allow",
+      "git diff *": "allow",
+
+      "python *": "allow",
+      "pytest *": "allow",
+
+      "aws sts get-caller-identity *": "allow",
+      "aws s3 ls *": "allow",
+      "aws cloudformation describe-* *": "allow",
+      "aws lambda list-* *": "allow",
+      "aws iam get-* *": "allow",
+
+      "cdk list *": "allow",
+      "cdk synth *": "allow",
+
+      "cdk diff *": "ask",
+      "cdk deploy *": "ask",
+      "cdk destroy *": "deny",
+
+      "aws *": "ask"
+    }
+  }
+}

@@ -1,0 +1,106 @@
+{
+ "Resources": {
+  "DataPlatformAlertsEF95EE99": {
+   "Type": "AWS::SNS::Topic",
+   "Properties": {
+    "TopicName": "irish-energy-data-platform-alerts"
+   },
+   "Metadata": {
+    "aws:cdk:path": "IrishEnergyMonitoring/DataPlatformAlerts/Resource"
+   }
+  },
+  "IngestionFailureAlarm746B0E10": {
+   "Type": "AWS::CloudWatch::Alarm",
+   "Properties": {
+    "AlarmActions": [
+     {
+      "Ref": "DataPlatformAlertsEF95EE99"
+     }
+    ],
+    "AlarmDescription": "Alert when ingestion functions fail",
+    "AlarmName": "IrishEnergyIngestionFailure",
+    "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+    "Dimensions": [
+     {
+      "Name": "FunctionName",
+      "Value": "EirGridIngestionFunction"
+     }
+    ],
+    "EvaluationPeriods": 1,
+    "MetricName": "Errors",
+    "Namespace": "AWS/Lambda",
+    "Period": 300,
+    "Statistic": "Sum",
+    "Threshold": 1
+   },
+   "Metadata": {
+    "aws:cdk:path": "IrishEnergyMonitoring/IngestionFailureAlarm/Resource"
+   }
+  },
+  "DataQualityAlarm360F20D8": {
+   "Type": "AWS::CloudWatch::Alarm",
+   "Properties": {
+    "AlarmActions": [
+     {
+      "Ref": "DataPlatformAlertsEF95EE99"
+     }
+    ],
+    "AlarmDescription": "Alert when data quality drops below threshold",
+    "AlarmName": "IrishEnergyDataQualityIssue",
+    "ComparisonOperator": "LessThanThreshold",
+    "EvaluationPeriods": 1,
+    "MetricName": "DataQualityScore",
+    "Namespace": "IrishEnergy/DataQuality",
+    "Period": 3600,
+    "Statistic": "Average",
+    "Threshold": 0.9
+   },
+   "Metadata": {
+    "aws:cdk:path": "IrishEnergyMonitoring/DataQualityAlarm/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/zPSMzI31TNQTCwv1k1OydbNyUzSqw4uSUzO1kksL46vLs4r1qsOyS/ITNZxTssDM2p1knPyS1PKE0uSM/SqHXMSi3JBcmBGbW2tTkBlSUZ+nr6xnqGJnoViVnFmpm5RaV5JZm6qXhCEBgBue0X6dQAAAA=="
+   },
+   "Metadata": {
+    "aws:cdk:path": "IrishEnergyMonitoring/CDKMetadata/Default"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

@@ -1,0 +1,66 @@
+{
+  "version": "55.0.0",
+  "files": {
+    "f3f14a2ce77c069b70b695bcc10c37f336309a5501e45dd9a83cb043a8831608": {
+      "displayName": "EirGridIngestionFunction/Code",
+      "source": {
+        "path": "asset.f3f14a2ce77c069b70b695bcc10c37f336309a5501e45dd9a83cb043a8831608",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "851725545966-eu-north-1-a4fdabd7": {
+          "bucketName": "cdk-hnb659fds-assets-851725545966-eu-north-1",
+          "objectKey": "f3f14a2ce77c069b70b695bcc10c37f336309a5501e45dd9a83cb043a8831608.zip",
+          "region": "eu-north-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::851725545966:role/cdk-hnb659fds-file-publishing-role-851725545966-eu-north-1"
+        }
+      }
+    },
+    "33b5378fb24de05927975b248a8722703bdc943d8a2082eb6a7cee3c748cf6e5": {
+      "displayName": "PandasPyArrowLayer/Code",
+      "source": {
+        "path": "asset.33b5378fb24de05927975b248a8722703bdc943d8a2082eb6a7cee3c748cf6e5.zip",
+        "packaging": "file"
+      },
+      "destinations": {
+        "851725545966-eu-north-1-89eba196": {
+          "bucketName": "cdk-hnb659fds-assets-851725545966-eu-north-1",
+          "objectKey": "33b5378fb24de05927975b248a8722703bdc943d8a2082eb6a7cee3c748cf6e5.zip",
+          "region": "eu-north-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::851725545966:role/cdk-hnb659fds-file-publishing-role-851725545966-eu-north-1"
+        }
+      }
+    },
+    "ba0e4f6fad6b33d34597f2dc84242f93df66d641147bd428ba68a5d6b38b5a0a": {
+      "displayName": "DataTransformationFunction/Code",
+      "source": {
+        "path": "asset.ba0e4f6fad6b33d34597f2dc84242f93df66d641147bd428ba68a5d6b38b5a0a",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "851725545966-eu-north-1-c0f7c4ad": {
+          "bucketName": "cdk-hnb659fds-assets-851725545966-eu-north-1",
+          "objectKey": "ba0e4f6fad6b33d34597f2dc84242f93df66d641147bd428ba68a5d6b38b5a0a.zip",
+          "region": "eu-north-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::851725545966:role/cdk-hnb659fds-file-publishing-role-851725545966-eu-north-1"
+        }
+      }
+    },
+    "180fb47c9b7e0399f5d9bd5a2c23ed9e65508eacabe0f1a7dbbdb73aec48ba7e": {
+      "displayName": "IrishEnergyIngestion Template",
+      "source": {
+        "path": "IrishEnergyIngestion.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "851725545966-eu-north-1-39438e05": {
+          "bucketName": "cdk-hnb659fds-assets-851725545966-eu-north-1",
+          "objectKey": "180fb47c9b7e0399f5d9bd5a2c23ed9e65508eacabe0f1a7dbbdb73aec48ba7e.json",
+          "region": "eu-north-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::851725545966:role/cdk-hnb659fds-file-publishing-role-851725545966-eu-north-1"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}

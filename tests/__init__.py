@@ -1,0 +1,1 @@
+"""Test package for Irish Energy Analytics Platform"""

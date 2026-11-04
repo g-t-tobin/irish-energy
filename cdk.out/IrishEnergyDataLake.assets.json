@@ -1,0 +1,21 @@
+{
+  "version": "55.0.0",
+  "files": {
+    "e1133701774cd2462a01fb26fb817521ac5c4050698fad0dc6275bbe06ee5b46": {
+      "displayName": "IrishEnergyDataLake Template",
+      "source": {
+        "path": "IrishEnergyDataLake.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "851725545966-eu-north-1-4ec7c398": {
+          "bucketName": "cdk-hnb659fds-assets-851725545966-eu-north-1",
+          "objectKey": "e1133701774cd2462a01fb26fb817521ac5c4050698fad0dc6275bbe06ee5b46.json",
+          "region": "eu-north-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::851725545966:role/cdk-hnb659fds-file-publishing-role-851725545966-eu-north-1"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}
