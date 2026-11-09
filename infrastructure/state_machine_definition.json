@@ -1,0 +1,225 @@
+{
+    "Comment": "Irish Energy Analytics Pipeline Orchestration",
+    "StartAt": "InitializeExecution",
+    "States": {
+        "InitializeExecution": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:eu-west-1:851725545966:function:PipelineStateUpdater",
+            "Parameters": {
+                "execution_id.$": "$.execution_id",
+                "status": "RUNNING",
+                "start_time.$": "$$.Execution.StartTime"
+            },
+            "Next": "ParallelIngestion",
+            "Retry": [
+                {
+                    "ErrorEquals": ["States.ALL"],
+                    "IntervalSeconds": 5,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 2
+                }
+            ],
+            "Catch": [
+                {
+                    "ErrorEquals": ["States.ALL"],
+                    "Next": "UpdateExecutionFailure",
+                    "ResultPath": "$.error"
+                }
+            ]
+        },
+        "ParallelIngestion": {
+            "Type": "Parallel",
+            "Branches": [
+                {
+                    "StartAt": "IngestEirGrid",
+                    "States": {
+                        "IngestEirGrid": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:lambda:eu-west-1:851725545966:function:EirGridIngestionFunction",
+                            "Parameters": {
+                                "date.$": "$.pipeline_date",
+                                "execution_id.$": "$.execution_id"
+                            },
+                            "End": true
+                        }
+                    }
+                },
+                {
+                    "StartAt": "IngestOpenMeteo",
+                    "States": {
+                        "IngestOpenMeteo": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:lambda:eu-west-1:851725545966:function:OpenMeteoIngestionFunction",
+                            "Parameters": {
+                                "date.$": "$.pipeline_date",
+                                "execution_id.$": "$.execution_id"
+                            },
+                            "End": true
+                        }
+                    }
+                }
+            ],
+            "Next": "ValidateBronzeData",
+            "Catch": [
+                {
+                    "ErrorEquals": ["States.ALL"],
+                    "Next": "UpdateExecutionFailure",
+                    "ResultPath": "$.error"
+                }
+            ]
+        },
+        "ValidateBronzeData": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:eu-west-1:851725545966:function:PipelineStateUpdater",
+            "Parameters": {
+                "execution_id.$": "$.execution_id",
+                "stage": "bronze_validation",
+                "status": "RUNNING",
+                "start_time.$": "$$.Execution.StartTime"
+            },
+            "Next": "TransformBronzeToSilver",
+            "Retry": [
+                {
+                    "ErrorEquals": ["States.ALL"],
+                    "IntervalSeconds": 5,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 2
+                }
+            ],
+            "Catch": [
+                {
+                    "ErrorEquals": ["States.ALL"],
+                    "Next": "UpdateExecutionFailure",
+                    "ResultPath": "$.error"
+                }
+            ]
+        },
+        "TransformBronzeToSilver": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:eu-west-1:851725545966:function:SilverTransformationFunction",
+            "Parameters": {
+                "transformation_type": "silver",
+                "data_type.$": "$.data_type",
+                "date.$": "$.pipeline_date",
+                "execution_id.$": "$.execution_id"
+            },
+            "Next": "ValidateSilverData",
+            "Retry": [
+                {
+                    "ErrorEquals": ["States.ALL"],
+                    "IntervalSeconds": 5,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 2
+                }
+            ],
+            "Catch": [
+                {
+                    "ErrorEquals": ["States.ALL"],
+                    "Next": "UpdateExecutionFailure",
+                    "ResultPath": "$.error"
+                }
+            ]
+        },
+        "ValidateSilverData": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:eu-west-1:851725545966:function:PipelineStateUpdater",
+            "Parameters": {
+                "execution_id.$": "$.execution_id",
+                "stage": "silver_validation",
+                "status": "RUNNING",
+                "start_time.$": "$$.Execution.StartTime"
+            },
+            "Next": "GenerateGoldDatasets",
+            "Retry": [
+                {
+                    "ErrorEquals": ["States.ALL"],
+                    "IntervalSeconds": 5,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 2
+                }
+            ],
+            "Catch": [
+                {
+                    "ErrorEquals": ["States.ALL"],
+                    "Next": "UpdateExecutionFailure",
+                    "ResultPath": "$.error"
+                }
+            ]
+        },
+        "GenerateGoldDatasets": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:eu-west-1:851725545966:function:GoldTransformationFunction",
+            "Parameters": {
+                "transformation_type": "gold",
+                "data_type.$": "$.data_type",
+                "date.$": "$.pipeline_date",
+                "execution_id.$": "$.execution_id"
+            },
+            "Next": "ValidateGoldData",
+            "Retry": [
+                {
+                    "ErrorEquals": ["States.ALL"],
+                    "IntervalSeconds": 5,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 2
+                }
+            ],
+            "Catch": [
+                {
+                    "ErrorEquals": ["States.ALL"],
+                    "Next": "UpdateExecutionFailure",
+                    "ResultPath": "$.error"
+                }
+            ]
+        },
+        "ValidateGoldData": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:eu-west-1:851725545966:function:PipelineStateUpdater",
+            "Parameters": {
+                "execution_id.$": "$.execution_id",
+                "stage": "gold_validation",
+                "status": "RUNNING",
+                "start_time.$": "$$.Execution.StartTime"
+            },
+            "Next": "MarkExecutionSuccessful",
+            "Retry": [
+                {
+                    "ErrorEquals": ["States.ALL"],
+                    "IntervalSeconds": 5,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 2
+                }
+            ],
+            "Catch": [
+                {
+                    "ErrorEquals": ["States.ALL"],
+                    "Next": "UpdateExecutionFailure",
+                    "ResultPath": "$.error"
+                }
+            ]
+        },
+        "MarkExecutionSuccessful": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:eu-west-1:851725545966:function:PipelineStateUpdater",
+            "Parameters": {
+                "execution_id.$": "$.execution_id",
+                "status": "SUCCEEDED",
+                "end_time.$": "$$.State.EnteredTime"
+            },
+            "End": true
+        },
+        "UpdateExecutionFailure": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:eu-west-1:851725545966:function:PipelineStateUpdater",
+            "Parameters": {
+                "execution_id.$": "$.execution_id",
+                "status": "FAILED",
+                "error_message.$": "$.error.Cause",
+                "end_time.$": "$$.State.EnteredTime"
+            },
+            "End": true
+        },
+            "End": true
+        }
+    }
+}

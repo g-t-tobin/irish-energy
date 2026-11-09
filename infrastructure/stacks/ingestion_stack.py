@@ -145,7 +145,41 @@ class IngestionStack(Stack):
             description="Layer with pandas, numpy and pyarrow dependencies"
         )
 
-        # Create transformation Lambda function
+        # Create separate Silver transformation Lambda function
+        silver_transformation_fn = _lambda.Function(
+            self,
+            "SilverTransformationFunction",
+            runtime=_lambda.Runtime.PYTHON_3_12,
+            handler="transformation.silver_lambda_handler.lambda_handler",
+            code=_lambda.Code.from_asset(str(TRANSFORMATION_BUILD_PATH)),
+            timeout=Duration.minutes(10),
+            role=transformation_role,
+            environment={
+                "BRONZE_BUCKET": bronze_bucket.bucket_name,
+                "SILVER_BUCKET": silver_bucket.bucket_name,
+                "GOLD_BUCKET": gold_bucket.bucket_name,
+            },
+            layers=[pandas_pyarrow_layer],
+        )
+
+        # Create separate Gold transformation Lambda function
+        gold_transformation_fn = _lambda.Function(
+            self,
+            "GoldTransformationFunction",
+            runtime=_lambda.Runtime.PYTHON_3_12,
+            handler="transformation.gold_lambda_handler.lambda_handler",
+            code=_lambda.Code.from_asset(str(TRANSFORMATION_BUILD_PATH)),
+            timeout=Duration.minutes(10),
+            role=transformation_role,
+            environment={
+                "BRONZE_BUCKET": bronze_bucket.bucket_name,
+                "SILVER_BUCKET": silver_bucket.bucket_name,
+                "GOLD_BUCKET": gold_bucket.bucket_name,
+            },
+            layers=[pandas_pyarrow_layer],
+        )
+
+        # Keep the existing combined transformation function for now
         transformation_fn = _lambda.Function(
             self,
             "DataTransformationFunction",
@@ -161,6 +195,11 @@ class IngestionStack(Stack):
             },
             layers=[pandas_pyarrow_layer],
         )
+
+        # Expose the functions for cross-stack references
+        self.eirgrid_ingestion_fn = eirgrid_ingestion_fn
+        self.openmeteo_ingestion_fn = openmeteo_ingestion_fn
+        self.transformation_fn = transformation_fn
 
         # Create EventBridge rule for triggering transformation
         transformation_rule = events.Rule(

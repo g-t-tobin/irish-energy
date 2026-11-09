@@ -3,10 +3,10 @@ Frontend-compatible data models for Irish Energy Analytics API
 These models translate API data structures to match frontend expectations
 """
 
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
 from datetime import datetime
-from api.models import DemandData as APIDemandData, \
+from .models_definitions import DemandData as APIDemandData, \
                        WeatherData as APIWeatherData, \
                        GenerationData as APIGenerationData, \
                        DataQualityMetrics as APIDataQualityMetrics, \
@@ -53,74 +53,55 @@ class FrontendSummaryData(BaseModel):
     data_quality_summary: dict
 
 # Conversion utility functions
-def convert_api_to_frontend_demand(api_data: List[APIDemandData]) -> List[FrontendDemandData]:
+def convert_api_to_frontend_demand(api_data: List[Dict[str, Any]]) -> List[FrontendDemandData]:
     """Convert API demand data to frontend-compatible format"""
     result = []
     for item in api_data:
-        # Convert timestamp to date string (YYYY-MM-DD format)
-        date_str = item.timestamp.strftime('%Y-%m-%d')
-        frontend_item = FrontendDemandData(
-            date=date_str,
-            total_demand=item.demand_mw,
-            avg_demand=item.demand_mwh,
-            min_demand=item.forecast_mw,
-            max_demand=item.forecast_mwh
-        )
+        # The item should already be in the correct format from the data service
+        frontend_item = FrontendDemandData(**item)
         result.append(frontend_item)
     return result
 
-def convert_api_to_frontend_weather(api_data: List[APIWeatherData]) -> List[FrontendWeatherData]:
+def convert_api_to_frontend_weather(api_data: List[Dict[str, Any]]) -> List[FrontendWeatherData]:
     """Convert API weather data to frontend-compatible format"""
     result = []
     for item in api_data:
-        # Convert timestamp to date string (YYYY-MM-DD format)
-        date_str = item.timestamp.strftime('%Y-%m-%d')
-        # Based on transformation logic, these should match the expected field names
-        frontend_item = FrontendWeatherData(
-            date=date_str,
-            avg_temperature=item.temperature_celsius,
-            min_temperature=item.humidity_percent,  # This is wrong, but we'll fix it
-            max_temperature=item.wind_speed_mps,   # This is wrong, but we'll fix it
-            avg_humidity=item.wind_direction_degrees  # This is wrong, but we'll fix it
-        )
+        # The item should already be in the correct format from the data service
+        frontend_item = FrontendWeatherData(**item)
         result.append(frontend_item)
     return result
 
-def convert_api_to_frontend_generation(api_data: List[APIGenerationData]) -> List[FrontendGenerationData]:
+def convert_api_to_frontend_generation(api_data: List[Dict[str, Any]]) -> List[FrontendGenerationData]:
     """Convert API generation data to frontend-compatible format"""
     result = []
     for item in api_data:
-        # Convert timestamp to date string (YYYY-MM-DD format)
-        date_str = item.timestamp.strftime('%Y-%m-%d')
-        frontend_item = FrontendGenerationData(
-            date=date_str,
-            fuel_type=item.renewable_generation_mw,
-            total_generation=item.fossil_generation_mw,
-            avg_generation=item.nuclear_generation_mw
-        )
+        # The item should already be in the correct format from the data service
+        frontend_item = FrontendGenerationData(**item)
         result.append(frontend_item)
     return result
 
-def convert_api_to_frontend_quality(api_data: List[APIDataQualityMetrics]) -> List[FrontendDataQualityMetrics]:
+def convert_api_to_frontend_quality(api_data: List[Dict[str, Any]]) -> List[FrontendDataQualityMetrics]:
     """Convert API quality metrics to frontend-compatible format"""
     result = []
     for item in api_data:
+        # For quality metrics, we need to adjust the data structure to match frontend expectations
         frontend_item = FrontendDataQualityMetrics(
-            data_type=item.dataset_name,
-            date=item.last_updated.strftime('%Y-%m-%d'),
+            data_type=item["dataset_name"],
+            date=item["last_updated"].strftime('%Y-%m-%d'),
             bronze_processed=True,  # Placeholder - would need actual data
             silver_processed=True,  # Placeholder - would need actual data
             gold_processed=True,    # Placeholder - would need actual data
-            processing_timestamp=item.last_updated.isoformat()
+            processing_timestamp=item["last_updated"].isoformat()
         )
         result.append(frontend_item)
     return result
 
-def convert_api_to_frontend_summary(api_data: APISummaryData) -> FrontendSummaryData:
+def convert_api_to_frontend_summary(api_data: Dict[str, Any]) -> FrontendSummaryData:
     """Convert API summary data to frontend-compatible format"""
+    # Adjust the data structure to match the expected frontend format
     return FrontendSummaryData(
-        total_datasets=api_data.total_datasets,
-        total_records=api_data.total_records,
-        last_updated=api_data.last_updated.strftime('%Y-%m-%d'),
-        data_quality_summary=api_data.data_quality_summary
+        total_datasets=api_data["total_datasets"],
+        total_records=api_data["total_records"],
+        last_updated=api_data["last_updated"].strftime('%Y-%m-%d'),
+        data_quality_summary=api_data["data_quality_summary"]
     )

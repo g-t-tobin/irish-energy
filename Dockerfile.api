@@ -1,0 +1,20 @@
+# AWS Lambda Python 3.12 container image for the Irish Energy Analytics API.
+# Build for linux/amd64 to match the existing x86_64 Lambda environment.
+FROM public.ecr.aws/lambda/python:3.12
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH="${LAMBDA_TASK_ROOT}"
+
+WORKDIR ${LAMBDA_TASK_ROOT}
+
+COPY requirements.txt ${LAMBDA_TASK_ROOT}/requirements.txt
+RUN python -m pip install --no-cache-dir --upgrade pip \
+    && python -m pip install --no-cache-dir -r requirements.txt
+
+# The build-context script places the contents of api/ at the task root
+# and the complete application source tree under src/.
+COPY . ${LAMBDA_TASK_ROOT}/
+
+# Mangum adapts the FastAPI app to the Lambda Runtime API.
+CMD ["lambda_handler.handler"]

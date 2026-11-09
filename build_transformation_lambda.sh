@@ -31,15 +31,21 @@ rm -rf "${BUILD_DIR}" "${ZIP_FILE}"
 mkdir -p "${BUILD_DIR}/transformation"
 mkdir -p "${BUILD_DIR}/src/transformation"
 mkdir -p "${BUILD_DIR}/src/common"
+mkdir -p "${BUILD_DIR}/src/validation"
 
 echo -e "${YELLOW}Copying transformation source files...${NC}"
 
 cp src/transformation/handler.py "${BUILD_DIR}/transformation/"
+cp src/transformation/silver_lambda_handler.py "${BUILD_DIR}/transformation/"
+cp src/transformation/gold_lambda_handler.py "${BUILD_DIR}/transformation/"
 cp src/transformation/data_transformation.py "${BUILD_DIR}/src/transformation/"
 cp src/transformation/quality_checks.py "${BUILD_DIR}/src/transformation/"
 cp src/transformation/bronze_layer.py "${BUILD_DIR}/src/transformation/"
 cp src/transformation/silver_layer.py "${BUILD_DIR}/src/transformation/"
 cp src/transformation/gold_layer.py "${BUILD_DIR}/src/transformation/"
+cp src/transformation/validation.py "${BUILD_DIR}/src/transformation/"
+cp src/validation/lambda_handler.py "${BUILD_DIR}/src/validation/"
+cp src/validation/__init__.py "${BUILD_DIR}/src/validation/"
 cp src/common/config.py "${BUILD_DIR}/src/common/"
 
 touch "${BUILD_DIR}/transformation/__init__.py"
@@ -78,6 +84,8 @@ import zipfile
 
 required = [
     "transformation/handler.py",
+    "transformation/silver_lambda_handler.py",
+    "transformation/gold_lambda_handler.py",
     "src/__init__.py",
     "src/transformation/__init__.py",
     "src/transformation/data_transformation.py",
@@ -85,6 +93,9 @@ required = [
     "src/transformation/bronze_layer.py",
     "src/transformation/silver_layer.py",
     "src/transformation/gold_layer.py",
+    "src/transformation/validation.py",
+    "src/validation/__init__.py",
+    "src/validation/lambda_handler.py",
     "src/common/__init__.py",
     "src/common/config.py",
     "loguru/__init__.py",

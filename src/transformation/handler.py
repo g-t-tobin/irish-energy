@@ -6,61 +6,102 @@ from datetime import datetime, timedelta
 from loguru import logger
 from src.transformation.data_transformation import DataTransformer
 from src.transformation.bronze_layer import BronzeLayerProcessor
+from src.monitoring.service import MonitoringService
 
 
 # Module-level instances for testing compatibility
 _data_transformer = DataTransformer()
 _bronze_layer_processor = BronzeLayerProcessor()
+_monitoring_service = MonitoringService()
 
 
 def lambda_handler(event, context):
     """
     Main Lambda handler for data transformation pipeline
-    
+
     Args:
         event (dict): Event data passed to Lambda
         context (object): Lambda context object
-        
+
     Returns:
         dict: Response with status and result
     """
     logger.info("Starting transformation Lambda function")
-    
+
     try:
         # Handle EventBridge event envelope or direct invocation
         data_type = None
         date_str = None
         raw_data = None
-        
+
         # Check if this is an EventBridge event (contains 'detail' field)
         if 'detail' in event:
+            execution_id = _monitoring_service.record_execution_start("transformation_pipeline", "unknown", "pipeline")
             # EventBridge event structure
             detail = event.get('detail', {})
             data_type = detail.get('data_type')
-            
+
+            # Check for ingestion status (for EirGrid events)
+            ingestion_status = detail.get('ingestion_status', 'unknown')
+
             # Parse date range for EirGrid and Open-Meteo events
             if data_type == 'eirgrid':
                 # EirGrid events have date_range
                 date_range = detail.get('date_range')
                 if not date_range:
                     raise ValueError("Missing date_range in EirGrid event")
-                
+
                 # Parse date range
                 start_date_str, end_date_str = date_range.split(' to ')
-                
+                date_str = start_date_str if start_date_str == end_date_str else f"{start_date_str} to {end_date_str}"
+
+                # Handle different ingestion statuses
+                if ingestion_status == 'failed':
+                    # Record failed execution and return without processing
+                    error_msg = "EirGrid ingestion failed - no data to process"
+                    _monitoring_service.record_execution_failure(execution_id, error_msg, "eirgrid", date_str)
+                    logger.info(f"EirGrid ingestion failed - skipping processing: {error_msg}")
+                    return {
+                        'statusCode': 200,
+                        'body': json.dumps({
+                            'status': 'skipped',
+                            'message': 'EirGrid ingestion failed - no data processed',
+                            'reason': 'ingestion_failed'
+                        })
+                    }
+                elif ingestion_status == 'completed':
+                    # Check if we have stats to determine partial success
+                    stats = detail.get('stats', {})
+                    if 'successful_days' in stats and 'failed_days' in stats:
+                        # For detailed stats, check if there were any successful days
+                        if stats.get('successful_days', 0) == 0 and stats.get('partial_success_days', 0) == 0:
+                            # No successful data at all - record as failed
+                            error_msg = "No EirGrid data successfully ingested"
+                            _monitoring_service.record_execution_failure(execution_id, error_msg, "eirgrid", date_str)
+                            logger.info(f"EirGrid ingestion had no successful data - skipping processing: {error_msg}")
+                            return {
+                                'statusCode': 200,
+                                'body': json.dumps({
+                                    'status': 'skipped',
+                                    'message': 'No EirGrid data successfully ingested',
+                                    'reason': 'no_successful_data'
+                                })
+                            }
+
                 # Process EirGrid data (both demand and generation)
                 success_results = []
-                
+
                 # First process demand data
                 demand_results = process_eirgrid_data(detail, 'demand', start_date_str, end_date_str)
                 success_results.extend(demand_results)
-                
+
                 # Then process generation data
                 generation_results = process_eirgrid_data(detail, 'generation', start_date_str, end_date_str)
                 success_results.extend(generation_results)
-                
-                # Return success if all operations succeeded
-                if all(success_results):
+
+                # Return success if all operations succeeded (and we have results)
+                if success_results and all(success_results):
+                    _monitoring_service.record_execution_success(execution_id, "eirgrid", date_str, "pipeline", 0.0)
                     return {
                         'statusCode': 200,
                         'body': json.dumps({
@@ -70,33 +111,42 @@ def lambda_handler(event, context):
                         })
                     }
                 else:
+                    # Empty results list or partial failures
+                    if not success_results:
+                        error_msg = "No EirGrid data processed"
+                    else:
+                        error_msg = "Some EirGrid data processing failed"
+
+                    _monitoring_service.record_execution_failure(execution_id, error_msg, "eirgrid", date_str)
                     return {
                         'statusCode': 500,
                         'body': json.dumps({
-                            'status': 'partial_failure',
-                            'message': 'Some EirGrid data processing failed',
+                            'status': 'failure',
+                            'message': error_msg,
                             'results': success_results
                         })
                     }
-            
+
             elif data_type == 'openmeteo':
                 # Open-Meteo events have location and date_range
                 location = detail.get('location')
                 if not location:
                     raise ValueError("Missing location in Open-Meteo event")
-                
+
                 date_range = detail.get('date_range')
                 if not date_range:
                     raise ValueError("Missing date_range in Open-Meteo event")
-                
+
                 # Parse date range
                 start_date_str, end_date_str = date_range.split(' to ')
-                
+                date_str = start_date_str if start_date_str == end_date_str else f"{start_date_str} to {end_date_str}"
+
                 # Process Open-Meteo data
                 success_results = process_openmeteo_data(detail, location, start_date_str, end_date_str)
-                
-                # Return success if all operations succeeded
-                if all(success_results):
+
+                # Return success if all operations succeeded (and we have results)
+                if success_results and all(success_results):
+                    _monitoring_service.record_execution_success(execution_id, "openmeteo", date_str, "pipeline", 0.0)
                     return {
                         'statusCode': 200,
                         'body': json.dumps({
@@ -106,47 +156,69 @@ def lambda_handler(event, context):
                         })
                     }
                 else:
+                    # Empty results list or partial failures
+                    if not success_results:
+                        error_msg = "No Open-Meteo data processed"
+                    else:
+                        error_msg = "Some Open-Meteo data processing failed"
+
+                    _monitoring_service.record_execution_failure(execution_id, error_msg, "openmeteo", date_str)
                     return {
                         'statusCode': 500,
                         'body': json.dumps({
-                            'status': 'partial_failure',
-                            'message': 'Some Open-Meteo data processing failed',
+                            'status': 'failure',
+                            'message': error_msg,
                             'results': success_results
                         })
                     }
-            
+
             else:
+                _monitoring_service.record_execution_failure(execution_id, f"Unsupported data type: {data_type}", data_type, date_str or "unknown")
                 raise ValueError(f"Unsupported data type: {data_type}")
-        
+
         else:
-            # Direct invocation - expects data_type, date_str, and raw_data
+            # Direct invocation - expects data_type, date and execution_id
+            # The orchestration workflow passes transformation_type, data_type, date, and execution_id
             data_type = event.get('data_type')
-            date_str = event.get('date_str')
-            raw_data = event.get('raw_data')
-            
-            if not all([data_type, date_str, raw_data]):
+            # Support both 'date' and 'date_str' parameter names for backwards compatibility
+            date_str = event.get('date_str') or event.get('date')
+            execution_id = event.get('execution_id')
+
+            if not all([data_type, date_str]):
                 raise ValueError("Missing required fields for direct invocation")
-            
-            # Process direct invocation
-            success = _data_transformer.process_incremental_data(data_type, date_str, raw_data)
-            
-            if success:
-                return {
-                    'statusCode': 200,
-                    'body': json.dumps({
-                        'status': 'success',
-                        'message': 'Direct data processing successful'
-                    })
-                }
-            else:
-                return {
-                    'statusCode': 500,
-                    'body': json.dumps({
-                        'status': 'failure',
-                        'message': 'Direct data processing failed'
-                    })
-                }
-        
+
+            # For orchestration-triggered transformations, we need to retrieve data from Bronze layer
+            # instead of expecting raw_data to be passed through Step Functions
+            try:
+                # Retrieve raw data from Bronze layer
+                bronze_key = f"{data_type}/bronze/{date_str}.json"
+                raw_data = _bronze_layer_processor.retrieve_bronze_data(bronze_key)
+
+                if raw_data is None:
+                    logger.error(f"No data found in Bronze layer for {data_type} on {date_str}")
+                    raise Exception(f"No data found in Bronze layer for {data_type} on {date_str}")
+
+                # Process direct invocation with retrieved data
+                success = _data_transformer.process_incremental_data(data_type, date_str, raw_data)
+
+                if success:
+                    return {
+                        'statusCode': 200,
+                        'body': json.dumps({
+                            'status': 'success',
+                            'message': 'Direct data processing successful'
+                        })
+                    }
+                else:
+                    # Raise an exception instead of returning 500 status
+                    # This ensures Step Functions treats it as a task failure
+                    raise Exception("Direct data processing failed")
+
+            except Exception as e:
+                logger.error(f"Error retrieving or processing data for {data_type} on {date_str}: {str(e)}")
+                # Re-raise to ensure Step Functions treats this as a failure
+                raise
+
         # Default return (shouldn't reach here)
         return {
             'statusCode': 200,
@@ -155,14 +227,14 @@ def lambda_handler(event, context):
                 'message': 'No data processed'
             })
         }
-    
+
     except Exception as e:
         # Re-raise AWS service errors to allow them to propagate for testing
         # but keep other exceptions wrapped in response for production safety
         from botocore.exceptions import ClientError
         if isinstance(e, ClientError):
             raise  # Propagate AWS service errors for testing purposes
-        
+
         logger.error(f"Error in transformation Lambda: {e}")
         return {
             'statusCode': 500,
@@ -176,27 +248,27 @@ def lambda_handler(event, context):
 def process_eirgrid_data(detail, data_subtype, start_date_str, end_date_str):
     """Process EirGrid data for a range of dates."""
     from datetime import datetime, timedelta
-    
+
     success_results = []
     start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
     end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-    
+
     # Generate all dates in the range
     current_date = start_date
     while current_date <= end_date:
         date_str = current_date.strftime('%Y-%m-%d')
         data_type = data_subtype
-        
+
         # For EirGrid data, we need to retrieve the raw data from Bronze layer
         # Use the module-level instance for testing compatibility
         bronze_files = _bronze_layer_processor.list_timestamped_ingestion_objects(data_type, date_str)
-        
+
         raw_data = None
         if bronze_files:
             # Get the most recent file (using LastModified instead of lexicographic sort)
             latest_file = max(bronze_files, key=lambda f: f['LastModified'])
             raw_data = _bronze_layer_processor.retrieve_bronze_data(latest_file['Key'])
-        
+
         # Process the data pipeline
         if raw_data is not None:
             # Use the module-level instance for testing compatibility
@@ -205,38 +277,38 @@ def process_eirgrid_data(detail, data_subtype, start_date_str, end_date_str):
         else:
             # If no data found, we consider it a failure
             success_results.append(False)
-        
+
         current_date += timedelta(days=1)
-    
+
     return success_results
 
 
 def process_openmeteo_data(detail, location, start_date_str, end_date_str):
     """Process Open-Meteo weather data for a range of dates."""
     from datetime import datetime, timedelta
-    
+
     success_results = []
     start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
     end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-    
+
     # Generate all dates in the range
     current_date = start_date
     while current_date <= end_date:
         date_str = current_date.strftime('%Y-%m-%d')
         data_type = 'weather'
-        
+
         # For Open-Meteo data, we need to retrieve the raw data from Bronze layer
         # Construct the correct prefix for weather data with location
         weather_prefix = f"weather/{location}/{date_str}/"
         # Use the module-level instance for testing compatibility
         bronze_files = _bronze_layer_processor.list_timestamped_ingestion_objects('weather', date_str, weather_prefix)
-        
+
         raw_data = None
         if bronze_files:
             # Get the most recent file (using LastModified instead of lexicographic sort)
             latest_file = max(bronze_files, key=lambda f: f['LastModified'])
             raw_data = _bronze_layer_processor.retrieve_bronze_data(latest_file['Key'])
-        
+
         # Process the data pipeline
         if raw_data is not None:
             # Use the module-level instance for testing compatibility
@@ -245,7 +317,7 @@ def process_openmeteo_data(detail, location, start_date_str, end_date_str):
         else:
             # If no data found, we consider it a failure
             success_results.append(False)
-        
+
         current_date += timedelta(days=1)
-    
+
     return success_results
