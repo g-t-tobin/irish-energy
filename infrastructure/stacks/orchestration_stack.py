@@ -9,6 +9,7 @@ from aws_cdk import (
     RemovalPolicy,
     CfnOutput,
     ArnFormat,
+    aws_lambda_layer as _lambda_layer
 )
 from constructs import Construct
 import json
@@ -119,6 +120,16 @@ class OrchestrationStack(Stack):
         # Grant orchestration role access to DynamoDB
         pipeline_state_table.grant_read_write_data(orchestration_role)
 
+        # Create pandas layer for validation function
+        pandas_layer = _lambda_layer.LayerVersion(
+            self,
+            "PandasLayer",
+            content="build/lambda_layers/pandas-layer.zip",
+            compatible_runtimes=[_lambda.Runtime.PYTHON_3_12],
+            compatible_architectures=[_lambda.Architecture.X86_64],
+            description="Pandas library layer for data validation functions"
+        )
+
         # Create validation function for checking data layers
         validation_function = _lambda.Function(
             self,
@@ -133,6 +144,7 @@ class OrchestrationStack(Stack):
                 "SILVER_BUCKET": "irish-energy-silver-851725545966-eu-west-1",
                 "GOLD_BUCKET": "irish-energy-gold-851725545966-eu-west-1",
             },
+            layers=[pandas_layer]
         )
 
         # Import existing Lambda functions from ingestion stack
