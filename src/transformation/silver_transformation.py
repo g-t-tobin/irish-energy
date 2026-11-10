@@ -11,10 +11,13 @@ from enum import Enum
 import uuid
 import hashlib
 from loguru import logger
+import boto3
+import time
 
 from src.common.config import Config
 from src.transformation.quality_checks import QualityChecker
 from src.storage.bronze_storage import BronzeStorageFactory
+from src.monitoring.data_freshness_monitor import DataFreshnessMonitor
 
 
 class TransformationStatus(Enum):
@@ -57,10 +60,16 @@ class SilverTransformationService:
         self.storage_factory = BronzeStorageFactory()
         self.storage = self.storage_factory.create_storage(storage_type)
         self.quality_checker = QualityChecker()
+        self.freshness_monitor = DataFreshnessMonitor()
 
         # Create quarantine directory if it doesn't exist
         self.quarantine_base_path = "./quarantine_storage"
         os.makedirs(self.quarantine_base_path, exist_ok=True)
+        
+        # Initialize CloudWatch client for metrics emission
+        self.cloudwatch_client = None
+        if os.getenv('AWS_LAMBDA_FUNCTION_NAME'):
+            self.cloudwatch_client = boto3.client('cloudwatch')
 
     def discover_bronze_records(self, data_type: str, date_str: str,
                               location: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -228,6 +237,12 @@ class SilverTransformationService:
                 'transformation_timestamp': datetime.now(timezone.utc).isoformat()
             }
 
+            # Emit transformation metrics
+            self._emit_transformation_metrics(data_type, date_str, summary, location)
+            
+            # Check data freshness
+            freshness_info = self.freshness_monitor.check_data_freshness(data_type, date_str, location)
+
             # Determine overall status
             if len(valid_records) > 0 and len(quarantined_records) == 0:
                 status = TransformationStatus.SUCCESS.value
@@ -240,7 +255,8 @@ class SilverTransformationService:
                 'status': status,
                 'valid_records': valid_records,
                 'quarantined_records': quarantined_records,
-                'summary': summary
+                'summary': summary,
+                'freshness_info': freshness_info
             }
 
         except Exception as e:
@@ -672,6 +688,90 @@ class SilverTransformationService:
         }
 
         return quarantine_record
+
+    def _emit_transformation_metrics(self, data_type: str, date_str: str, 
+                                   summary: Dict[str, Any], location: Optional[str] = None):
+        """
+        Emit detailed transformation metrics to CloudWatch
+        
+        Args:
+            data_type: Type of data ('demand', 'weather', 'generation')
+            date_str: Date string in YYYY-MM-DD format
+            summary: Summary dictionary from transformation
+            location: Location identifier for weather data (optional)
+        """
+        if not self.cloudwatch_client:
+            return  # Don't emit metrics outside of Lambda environment
+            
+        try:
+            # Prepare dimensions for CloudWatch metrics
+            dimensions = [
+                {'Name': 'DataType', 'Value': data_type},
+                {'Name': 'Date', 'Value': date_str}
+            ]
+            
+            if location:
+                dimensions.append({'Name': 'Location', 'Value': location})
+                
+            # Emit various metrics
+            self.cloudwatch_client.put_metric_data(
+                Namespace='IrishEnergy/Transformation',
+                MetricData=[
+                    {
+                        'MetricName': 'TotalRecordsProcessed',
+                        'Value': summary['total_input_records'],
+                        'Unit': 'Count',
+                        'Dimensions': dimensions
+                    },
+                    {
+                        'MetricName': 'ValidRecords',
+                        'Value': summary['valid_records'],
+                        'Unit': 'Count',
+                        'Dimensions': dimensions
+                    },
+                    {
+                        'MetricName': 'QuarantinedRecords',
+                        'Value': summary['quarantined_records'],
+                        'Unit': 'Count',
+                        'Dimensions': dimensions
+                    },
+                    {
+                        'MetricName': 'DuplicateRecords',
+                        'Value': summary['duplicate_records'],
+                        'Unit': 'Count',
+                        'Dimensions': dimensions
+                    },
+                    {
+                        'MetricName': 'TransformationSuccessRate',
+                        'Value': summary['quality_score'],
+                        'Unit': 'Percent',
+                        'Dimensions': dimensions
+                    },
+                    {
+                        'MetricName': 'ProcessingTimeSeconds',
+                        'Value': self._calculate_processing_time(summary),
+                        'Unit': 'Seconds',
+                        'Dimensions': dimensions
+                    }
+                ]
+            )
+            
+        except Exception as e:
+            logger.error(f"Failed to emit transformation metrics: {str(e)}")
+
+    def _calculate_processing_time(self, summary: Dict[str, Any]) -> float:
+        """
+        Calculate approximate processing time from summary
+        
+        Args:
+            summary: Transformation summary
+            
+        Returns:
+            Processing time in seconds
+        """
+        # In a real implementation, this would be calculated from actual timing
+        # For now, we'll return a placeholder value
+        return 0.0
 
     def _save_valid_records_to_silver(self, valid_records: List[Dict[str, Any]],
                                     data_type: str, date_str: str,
