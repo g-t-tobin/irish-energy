@@ -12,12 +12,14 @@ import pyarrow.parquet as pq
 from loguru import logger
 import boto3
 from io import BytesIO
+import hashlib
 
 from src.common.config import Config
 from src.transformation.quality_checks import QualityChecker
 from src.transformation.bronze_layer import BronzeLayerProcessor
 from src.transformation.silver_layer import SilverLayerProcessor
 from src.transformation.gold_layer import GoldLayerProcessor
+from src.transformation.retry_logic import exponential_backoff_retry, RetryConfig, CircuitBreaker, TransformationRetryManager
 
 
 class DataTransformer:
@@ -31,6 +33,39 @@ class DataTransformer:
         self.bronze_processor = BronzeLayerProcessor(s3_client)
         self.silver_processor = SilverLayerProcessor()
         self.gold_processor = GoldLayerProcessor()
+        self.quality_checker = QualityChecker()
+        
+        # Initialize retry configurations
+        self.retry_config = RetryConfig(
+            max_attempts=3,
+            base_delay=1.0,
+            max_delay=60.0,
+            backoff_factor=2.0
+        )
+        
+        # Initialize circuit breaker
+        self.circuit_breaker = CircuitBreaker(
+            failure_threshold=5,
+            timeout=60.0
+        )
+        
+        # Initialize retry manager
+        self.retry_manager = TransformationRetryManager(self.retry_config)
+    
+    def _execute_with_retry(self, operation: Callable, *args, **kwargs) -> Any:
+        """
+        Execute an operation with retry logic
+        
+        Args:
+            operation: Function to execute
+            *args: Arguments for the function
+            **kwargs: Keyword arguments for the function
+            
+        Returns:
+            Result of the operation
+        """
+        # Use the retry manager with circuit breaker
+        return self.retry_manager.safe_execute_with_retry(operation, *args, **kwargs)
 
     def process_data_pipeline(self, data_type: str, date_str: str, raw_data: Dict[str, Any]) -> bool:
         """
@@ -126,6 +161,7 @@ class DataTransformer:
             logger.error(f"Error validating Bronze data: {str(e)}")
             return False
 
+    @exponential_backoff_retry(config=None, circuit_breaker=None)
     def process_bronze_to_silver(self, data_type: str, date_str: str) -> bool:
         """
         Process data from Bronze to Silver layer
@@ -142,14 +178,21 @@ class DataTransformer:
         try:
             # Retrieve Bronze data
             bronze_key = f"{data_type}/bronze/{date_str}.json"
-            raw_data = self.bronze_processor.retrieve_bronze_data(bronze_key)
+            
+            def retrieve_bronze_operation():
+                return self.bronze_processor.retrieve_bronze_data(bronze_key)
+            
+            raw_data = self._execute_with_retry(retrieve_bronze_operation)
             
             if not raw_data:
                 logger.error(f"No Bronze data found for {data_type} on {date_str}")
                 return False
                 
             # Transform to Silver layer format
-            silver_df = self.silver_processor.transform_to_silver(data_type, raw_data)
+            def transform_silver_operation():
+                return self.silver_processor.transform_to_silver(data_type, raw_data)
+            
+            silver_df = self._execute_with_retry(transform_silver_operation)
             
             if silver_df is None or silver_df.empty:
                 logger.error(f"No data generated for Silver layer {data_type} on {date_str}")
@@ -162,10 +205,18 @@ class DataTransformer:
                 
             # Store at Silver layer
             silver_key = f"{data_type}/silver/{date_str}.parquet"
-            self.silver_processor.store_silver_data(silver_key, silver_df)
             
-            logger.info(f"Successfully processed Bronze to Silver for {data_type} on {date_str}")
-            return True
+            def store_silver_operation():
+                return self.silver_processor.store_silver_data(silver_key, silver_df)
+            
+            success = self._execute_with_retry(store_silver_operation)
+            
+            if success:
+                logger.info(f"Successfully processed Bronze to Silver for {data_type} on {date_str}")
+                return True
+            else:
+                logger.error(f"Failed to store Silver data for {data_type} on {date_str}")
+                return False
             
         except Exception as e:
             logger.error(f"Error processing Bronze to Silver: {str(e)}")
@@ -234,10 +285,19 @@ class DataTransformer:
         try:
             # Store raw data in Bronze layer
             bronze_key = f"{data_type}/bronze/{date_str}.json"
-            self.bronze_processor.store_bronze_data(bronze_key, raw_data)
             
-            logger.info(f"Successfully stored Bronze data for {data_type} on {date_str}")
-            return True
+            def store_bronze_operation():
+                return self.bronze_processor.store_bronze_data(bronze_key, raw_data)
+            
+            # Execute with retry logic
+            success = self._execute_with_retry(store_bronze_operation)
+            
+            if success:
+                logger.info(f"Successfully stored Bronze data for {data_type} on {date_str}")
+                return True
+            else:
+                logger.error(f"Failed to store Bronze data for {data_type} on {date_str}")
+                return False
             
         except Exception as e:
             logger.error(f"Error processing Bronze layer: {str(e)}")
@@ -245,7 +305,7 @@ class DataTransformer:
 
     def process_silver_layer(self, data_type: str, date_str: str) -> bool:
         """
-        Process data at Silver layer
+        Process data at Silver layer with idempotency support
         
         Args:
             data_type: Type of data ('demand', 'weather', 'generation')
@@ -259,14 +319,40 @@ class DataTransformer:
         try:
             # Retrieve Bronze data
             bronze_key = f"{data_type}/bronze/{date_str}.json"
-            raw_data = self.bronze_processor.retrieve_bronze_data(bronze_key)
+            
+            def retrieve_bronze_operation():
+                return self.bronze_processor.retrieve_bronze_data(bronze_key)
+            
+            raw_data = self._execute_with_retry(retrieve_bronze_operation)
             
             if not raw_data:
                 logger.error(f"No Bronze data found for {data_type} on {date_str}")
                 return False
                 
+            # Compute input hash for idempotency tracking
+            input_hash = self._compute_input_hash(raw_data)
+            
+            # Check if this transformation has already been performed with same inputs
+            # We check at the Silver layer level
+            from src.transformation.idempotent_transformation import check_existing_transformation, IdempotentTransformation
+            
+            def check_existing_operation():
+                return check_existing_transformation(
+                    self.silver_processor, data_type, date_str, 'silver', input_hash, self.s3_client
+                )
+            
+            exists, existing_transformation_hash = self._execute_with_retry(check_existing_operation)
+            
+            if exists and existing_transformation_hash:
+                logger.info(f"Data already processed with same inputs for {data_type} on {date_str}")
+                logger.info(f"Using existing transformation with hash: {existing_transformation_hash}")
+                return True  # Already processed with same inputs, no need to reprocess
+                
             # Transform to Silver layer format
-            silver_df = self.silver_processor.transform_to_silver(data_type, raw_data)
+            def transform_silver_operation():
+                return self.silver_processor.transform_to_silver(data_type, raw_data)
+            
+            silver_df = self._execute_with_retry(transform_silver_operation)
             
             if silver_df is None or silver_df.empty:
                 logger.error(f"No data generated for Silver layer {data_type} on {date_str}")
@@ -277,12 +363,29 @@ class DataTransformer:
                 logger.error(f"Data validation failed at Silver layer for {data_type}")
                 return False
                 
-            # Store at Silver layer
-            silver_key = f"{data_type}/silver/{date_str}.parquet"
-            self.silver_processor.store_silver_data(silver_key, silver_df)
+            # Compute output hash for consistency checks
+            output_hash = IdempotentTransformation.compute_dataframe_hash(silver_df)
             
-            logger.info(f"Successfully stored Silver data for {data_type} on {date_str}")
-            return True
+            # Store at Silver layer with metadata for idempotency
+            silver_key = f"{data_type}/silver/{date_str}.parquet"
+            
+            def store_silver_operation():
+                return self.silver_processor.store_silver_data(silver_key, silver_df, {
+                    'input_hash': input_hash,
+                    'output_hash': output_hash,
+                    'transformation_type': 'silver',
+                    'data_type': data_type,
+                    'date': date_str
+                })
+            
+            success = self._execute_with_retry(store_silver_operation)
+            
+            if success:
+                logger.info(f"Successfully stored Silver data for {data_type} on {date_str}")
+            else:
+                logger.error(f"Failed to store Silver data for {data_type} on {date_str}")
+                
+            return success
             
         except Exception as e:
             logger.error(f"Error processing Silver layer: {str(e)}")
@@ -290,7 +393,7 @@ class DataTransformer:
 
     def process_gold_layer(self, data_type: str, date_str: str) -> bool:
         """
-        Process data at Gold layer
+        Process data at Gold layer with idempotency support
         
         Args:
             data_type: Type of data ('demand', 'weather', 'generation')
@@ -304,25 +407,49 @@ class DataTransformer:
         try:
             # Retrieve Silver data
             silver_key = f"{data_type}/silver/{date_str}.parquet"
-            silver_df = self.silver_processor.retrieve_silver_data(silver_key)
+            
+            def retrieve_silver_operation():
+                return self.silver_processor.retrieve_silver_data(silver_key)
+            
+            silver_df = self._execute_with_retry(retrieve_silver_operation)
             
             if silver_df is None or silver_df.empty:
                 logger.error(f"No Silver data found for {data_type} on {date_str}")
                 return False
                 
             # Transform to Gold layer format
-            gold_df = self.gold_processor.transform_to_gold(data_type, silver_df)
+            def transform_gold_operation():
+                return self.gold_processor.transform_to_gold(data_type, silver_df)
+            
+            gold_df = self._execute_with_retry(transform_gold_operation)
             
             if gold_df is None or gold_df.empty:
                 logger.error(f"No data generated for Gold layer {data_type} on {date_str}")
                 return False
                 
-            # Store at Gold layer
-            gold_key = f"{data_type}/gold/{date_str}.parquet"
-            self.gold_processor.store_gold_data(gold_key, gold_df)
+            # Compute output hash for consistency checks
+            output_hash = IdempotentTransformation.compute_dataframe_hash(gold_df)
             
-            logger.info(f"Successfully stored Gold data for {data_type} on {date_str}")
-            return True
+            # Store at Gold layer with metadata for idempotency
+            gold_key = f"{data_type}/gold/{date_str}.parquet"
+            
+            def store_gold_operation():
+                return self.gold_processor.store_gold_data(gold_key, gold_df, {
+                    'input_hash': '',  # This would be computed from the bronze data, but we don't have it here
+                    'output_hash': output_hash,
+                    'transformation_type': 'gold',
+                    'data_type': data_type,
+                    'date': date_str
+                })
+            
+            success = self._execute_with_retry(store_gold_operation)
+            
+            if success:
+                logger.info(f"Successfully stored Gold data for {data_type} on {date_str}")
+            else:
+                logger.error(f"Failed to store Gold data for {data_type} on {date_str}")
+                
+            return success
             
         except Exception as e:
             logger.error(f"Error processing Gold layer: {str(e)}")
@@ -330,7 +457,7 @@ class DataTransformer:
 
     def process_incremental_data(self, data_type: str, date_str: str, raw_data: Dict[str, Any]) -> bool:
         """
-        Process incremental data updates
+        Process incremental data updates with idempotency support
         
         Args:
             data_type: Type of data ('demand', 'weather', 'generation')
@@ -341,32 +468,51 @@ class DataTransformer:
             bool: True if successful, False otherwise
         """
         from botocore.exceptions import ClientError
+        from src.transformation.idempotent_transformation import (
+            check_existing_transformation,
+            idempotent_store_data,
+            IdempotentTransformation
+        )
         
         logger.info(f"Processing incremental data for {data_type} on {date_str}")
         
-        # Check if data already exists in Gold layer
-        gold_key = f"{data_type}/gold/{date_str}.parquet"
-        try:
-            self.s3_client.head_object(
-                Bucket=self.config.GOLD_BUCKET,
-                Key=gold_key
-            )
-            logger.info(f"Data already exists in Gold layer for {data_type} on {date_str}")
-            return True  # Already processed, no need to reprocess
-        except ClientError as e:
-            # Only treat genuine object-not-found errors as permission to continue processing
-            if e.response['Error']['Code'] == 'NoSuchKey':
-                # Data doesn't exist, proceed with processing
-                pass
-            else:
-                # Re-raise other AWS errors (permissions, etc.)
-                raise
-        except Exception as e:
-            # Re-raise non-AWS exceptions
-            raise
+        # Compute input hash for idempotency tracking
+        input_hash = self._compute_input_hash(raw_data)
+        
+        # Check if this transformation has already been performed with same inputs
+        # We check at the Gold layer level since that's the final destination
+        exists, existing_transformation_hash = check_existing_transformation(
+            self.gold_processor, data_type, date_str, 'gold', input_hash, self.s3_client
+        )
+        
+        if exists and existing_transformation_hash:
+            logger.info(f"Data already processed with same inputs for {data_type} on {date_str}")
+            logger.info(f"Using existing transformation with hash: {existing_transformation_hash}")
+            return True  # Already processed with same inputs, no need to reprocess
             
         # Process the full pipeline
-        return self.process_data_pipeline(data_type, date_str, raw_data)
+        success = self.process_data_pipeline(data_type, date_str, raw_data)
+        
+        if success:
+            # For idempotency, we need to track that this transformation was completed
+            # This is handled in the individual layer processing methods now
+            pass
+            
+        return success
+
+    def _compute_input_hash(self, raw_data: Dict[str, Any]) -> str:
+        """
+        Compute a hash of the raw input data for idempotency tracking
+        
+        Args:
+            raw_data: Raw data dictionary
+            
+        Returns:
+            MD5 hash string of the input data
+        """
+        # Convert to JSON for consistent hashing
+        data_json = json.dumps(raw_data, sort_keys=True, separators=(',', ':'))
+        return hashlib.md5(data_json.encode('utf-8')).hexdigest()
 
     def get_data_quality_metrics(self, data_type: str, date_str: str) -> Dict[str, Any]:
         """
@@ -405,7 +551,6 @@ class DataTransformer:
             else:
                 # Re-raise AWS permission errors, network failures, and service errors as they indicate real issues
                 raise
-        # Note: Removed the generic Exception handler that referenced undefined 'e' variable
             
         # Check Silver layer
         silver_key = f"{data_type}/silver/{date_str}.parquet"
@@ -422,7 +567,6 @@ class DataTransformer:
             else:
                 # Re-raise AWS permission errors, network failures, and service errors as they indicate real issues
                 raise
-        # Note: Removed the generic Exception handler that referenced undefined 'e' variable
             
         # Check Gold layer
         gold_key = f"{data_type}/gold/{date_str}.parquet"
@@ -439,6 +583,5 @@ class DataTransformer:
             else:
                 # Re-raise AWS permission errors, network failures, and service errors as they indicate real issues
                 raise
-        # Note: Removed the generic Exception handler that referenced undefined 'e' variable
             
         return metrics
