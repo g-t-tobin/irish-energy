@@ -1,0 +1,196 @@
+"""
+Historical electricity demand analysis module for Irish Energy Analytics Data Platform
+"""
+
+import pandas as pd
+import numpy as np
+from typing import Optional, List, Dict, Any, Tuple
+from datetime import datetime
+from src.analytics.models import DemandAnalysisResult
+from src.analytics.data_access import GoldDataAccessor
+
+class HistoricalDemandAnalyzer:
+    """Analyzer for historical electricity demand data"""
+
+    def __init__(self, data_accessor: GoldDataAccessor):
+        self.data_accessor = data_accessor
+
+    def analyze_historical_demand(self,
+                                 start_date: Optional[str] = None,
+                                 end_date: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Perform comprehensive historical demand analysis
+        
+        Args:
+            start_date: Start date filter (YYYY-MM-DD)
+            end_date: End date filter (YYYY-MM-DD)
+            
+        Returns:
+            Dictionary with comprehensive historical demand analysis
+        """
+        # Get demand data
+        df = self.data_accessor.get_demand_data(start_date, end_date)
+
+        if df.empty:
+            raise ValueError("No demand data available for historical analysis")
+
+        # Calculate basic metrics
+        total_demand_mwh = float(df['demand_mwh'].sum())
+        average_demand_mw = float(df['demand_mw'].mean())
+        min_demand_mw = float(df['demand_mw'].min())
+        max_demand_mw = float(df['demand_mw'].max())
+        median_demand_mw = float(df['demand_mw'].median())
+
+        # Get date range
+        date_range = (df['timestamp'].min().strftime('%Y-%m-%d'),
+                     df['timestamp'].max().strftime('%Y-%m-%d'))
+
+        # Find peak demand periods (top 5 highest demand days)
+        peak_demand_periods = self._find_peak_periods(df)
+
+        # Calculate daily profiles (average by day of week)
+        daily_profiles = self._calculate_daily_profiles(df)
+
+        # Calculate weekly patterns (average by week)
+        weekly_patterns = self._calculate_weekly_patterns(df)
+
+        # Calculate monthly patterns
+        monthly_patterns = self._calculate_monthly_patterns(df)
+
+        # Calculate seasonal patterns
+        seasonal_patterns = self._calculate_seasonal_patterns(df)
+
+        # Calculate growth rate (if more than one year)
+        growth_rate = self._calculate_growth_rate(df)
+
+        # Calculate historical comparisons
+        historical_comparisons = self._calculate_historical_comparisons(df)
+
+        return {
+            "dataset_name": "demand",
+            "date_range": date_range,
+            "total_demand_mwh": total_demand_mwh,
+            "average_demand_mw": average_demand_mw,
+            "min_demand_mw": min_demand_mw,
+            "max_demand_mw": max_demand_mw,
+            "median_demand_mw": median_demand_mw,
+            "peak_demand_periods": peak_demand_periods,
+            "daily_profiles": daily_profiles,
+            "weekly_patterns": weekly_patterns,
+            "monthly_patterns": monthly_patterns,
+            "seasonal_patterns": seasonal_patterns,
+            "growth_rate": growth_rate,
+            "historical_comparisons": historical_comparisons,
+            "calculation_timestamp": datetime.now().isoformat()
+        }
+
+    def _find_peak_periods(self, df: pd.DataFrame, top_n: int = 5) -> List[Dict[str, Any]]:
+        """Find peak demand periods"""
+        top_peaks = df.nlargest(top_n, 'demand_mw')
+        return [
+            {
+                'date': row['timestamp'].strftime('%Y-%m-%d'),
+                'demand_mw': float(row['demand_mw']),
+                'demand_mwh': float(row['demand_mwh'])
+            }
+            for _, row in top_peaks.iterrows()
+        ]
+
+    def _calculate_daily_profiles(self, df: pd.DataFrame) -> Dict[str, float]:
+        """Calculate average demand by day of week"""
+        df_copy = df.copy()
+        df_copy['day_of_week'] = df_copy['timestamp'].dt.day_name()
+        daily_avg = df_copy.groupby('day_of_week')['demand_mw'].mean().to_dict()
+        # Ensure all days are present
+        weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        for day in weekdays:
+            if day not in daily_avg:
+                daily_avg[day] = 0.0
+        return daily_avg
+
+    def _calculate_weekly_patterns(self, df: pd.DataFrame) -> Dict[str, float]:
+        """Calculate weekly demand patterns"""
+        df_copy = df.copy()
+        df_copy['week_of_year'] = df_copy['timestamp'].dt.isocalendar().week
+        weekly_avg = df_copy.groupby('week_of_year')['demand_mw'].mean().to_dict()
+        return weekly_avg
+
+    def _calculate_monthly_patterns(self, df: pd.DataFrame) -> Dict[str, float]:
+        """Calculate monthly demand patterns"""
+        df_copy = df.copy()
+        df_copy['month'] = df_copy['timestamp'].dt.month_name()
+        monthly_avg = df_copy.groupby('month')['demand_mw'].mean().to_dict()
+        # Order months chronologically
+        month_order = ['January', 'February', 'March', 'April', 'May', 'June',
+                      'July', 'August', 'September', 'October', 'November', 'December']
+        ordered_monthly = {}
+        for month in month_order:
+            if month in monthly_avg:
+                ordered_monthly[month] = monthly_avg[month]
+            else:
+                ordered_monthly[month] = 0.0
+        return ordered_monthly
+
+    def _calculate_seasonal_patterns(self, df: pd.DataFrame) -> Dict[str, float]:
+        """Calculate seasonal demand patterns"""
+        df_copy = df.copy()
+        df_copy['month'] = df_copy['timestamp'].dt.month
+
+        # Define seasons
+        def get_season(month):
+            if month in [12, 1, 2]:
+                return 'Winter'
+            elif month in [3, 4, 5]:
+                return 'Spring'
+            elif month in [6, 7, 8]:
+                return 'Summer'
+            else:
+                return 'Fall'
+
+        df_copy['season'] = df_copy['month'].apply(get_season)
+        seasonal_avg = df_copy.groupby('season')['demand_mw'].mean().to_dict()
+        return seasonal_avg
+
+    def _calculate_growth_rate(self, df: pd.DataFrame) -> Optional[float]:
+        """Calculate annual growth rate (simplified for single year)"""
+        if len(df) < 2:
+            return None
+
+        # For a single year, growth rate is not meaningful
+        # Return None to indicate this limitation
+        return None
+
+    def _calculate_historical_comparisons(self, df: pd.DataFrame) -> Dict[str, Any]:
+        """Calculate historical comparisons"""
+        # Calculate overall statistics
+        avg_demand = float(df['demand_mw'].mean())
+        max_demand = float(df['demand_mw'].max())
+        min_demand = float(df['demand_mw'].min())
+        
+        # Calculate percentage differences
+        avg_vs_max = ((max_demand - avg_demand) / avg_demand) * 100 if avg_demand != 0 else 0
+        avg_vs_min = ((avg_demand - min_demand) / avg_demand) * 100 if avg_demand != 0 else 0
+        
+        # Find periods significantly above average (e.g., 20% above)
+        significant_peaks = df[df['demand_mw'] > avg_demand * 1.2]
+        
+        # Find periods significantly below average (e.g., 20% below)
+        significant_troughs = df[df['demand_mw'] < avg_demand * 0.8]
+        
+        return {
+            "average_demand_mw": avg_demand,
+            "max_demand_mw": max_demand,
+            "min_demand_mw": min_demand,
+            "average_vs_maximum_percentage": avg_vs_max,
+            "average_vs_minimum_percentage": avg_vs_min,
+            "significant_peak_periods": len(significant_peaks),
+            "significant_trough_periods": len(significant_troughs),
+            "significant_peak_dates": [
+                row['timestamp'].strftime('%Y-%m-%d') 
+                for _, row in significant_peaks.iterrows()
+            ] if not significant_peaks.empty else [],
+            "significant_trough_dates": [
+                row['timestamp'].strftime('%Y-%m-%d') 
+                for _, row in significant_troughs.iterrows()
+            ] if not significant_troughs.empty else []
+        }
