@@ -91,6 +91,24 @@ class AnalyticsApiStack(Stack):
         )
 
         http_api.add_routes(
+            path="/demand/peak",
+            methods=[apigw2.HttpMethod.GET],
+            integration=apigw2_integrations.HttpLambdaIntegration(
+                "DemandPeakLambdaIntegration",
+                handler=api_function
+            )
+        )
+
+        http_api.add_routes(
+            path="/demand/historical",
+            methods=[apigw2.HttpMethod.GET],
+            integration=apigw2_integrations.HttpLambdaIntegration(
+                "DemandHistoricalLambdaIntegration",
+                handler=api_function
+            )
+        )
+
+        http_api.add_routes(
             path="/weather",
             methods=[apigw2.HttpMethod.GET],
             integration=apigw2_integrations.HttpLambdaIntegration(
@@ -104,6 +122,42 @@ class AnalyticsApiStack(Stack):
             methods=[apigw2.HttpMethod.GET],
             integration=apigw2_integrations.HttpLambdaIntegration(
                 "GenerationLambdaIntegration",
+                handler=api_function
+            )
+        )
+
+        http_api.add_routes(
+            path="/generation/mix",
+            methods=[apigw2.HttpMethod.GET],
+            integration=apigw2_integrations.HttpLambdaIntegration(
+                "GenerationMixLambdaIntegration",
+                handler=api_function
+            )
+        )
+
+        http_api.add_routes(
+            path="/generation/renewables",
+            methods=[apigw2.HttpMethod.GET],
+            integration=apigw2_integrations.HttpLambdaIntegration(
+                "GenerationRenewablesLambdaIntegration",
+                handler=api_function
+            )
+        )
+
+        http_api.add_routes(
+            path="/weather-demand/correlation",
+            methods=[apigw2.HttpMethod.GET],
+            integration=apigw2_integrations.HttpLambdaIntegration(
+                "WeatherDemandCorrelationLambdaIntegration",
+                handler=api_function
+            )
+        )
+
+        http_api.add_routes(
+            path="/weather-demand/patterns",
+            methods=[apigw2.HttpMethod.GET],
+            integration=apigw2_integrations.HttpLambdaIntegration(
+                "WeatherDemandPatternsLambdaIntegration",
                 handler=api_function
             )
         )
