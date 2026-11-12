@@ -1,14 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  PipelineExecution,
-  QualityMetric,
-  Alert,
-  Incident,
-  ReconciliationReport,
-  BackfillPlan,
-  DatasetInventory,
-  AggregatedObservabilityMetrics,
   EnergySummary,
   DemandForecast,
   RenewableForecast,
@@ -17,13 +9,6 @@ import {
   DriftDetectionResult,
   RetrainingRecommendation,
   ModelLifecycleStatus
-} from '../types/dashboardTypes';
-import {
-  ModelMetadata as MLOpsModelMetadata,
-  ModelPerformance as MLOpsModelPerformance,
-  DriftDetectionResult as MLOpsDriftDetectionResult,
-  RetrainingRecommendation as MLOpsRetrainingRecommendation,
-  ModelLifecycleStatus as MLOpsModelLifecycleStatus
 } from '../types/mlopsTypes';
 
 // Mock data for initial implementation
