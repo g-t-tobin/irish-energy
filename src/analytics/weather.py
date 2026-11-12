@@ -8,6 +8,7 @@ from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime
 from src.analytics.models import WeatherAnalysisResult
 from src.analytics.data_access import GoldDataAccessor
+from loguru import logger
 
 class WeatherAnalyzer:
     """Analyzer for weather data"""
@@ -41,8 +42,16 @@ class WeatherAnalyzer:
         avg_precipitation_mm = float(df['precipitation_mm'].mean())
 
         # Get date range
-        date_range = (df['timestamp'].min().strftime('%Y-%m-%d'),
-                     df['timestamp'].max().strftime('%Y-%m-%d'))
+        # Ensure timestamp is properly converted to datetime
+        try:
+            if not pd.api.types.is_datetime64_any_dtype(df['timestamp']):
+                df['timestamp'] = pd.to_datetime(df['timestamp'])
+            date_range = (df['timestamp'].min().strftime('%Y-%m-%d'),
+                          df['timestamp'].max().strftime('%Y-%m-%d'))
+        except Exception as e:
+            # Fallback in case of timestamp conversion issues
+            logger.warning(f"Could not convert timestamps: {e}")
+            date_range = ("1900-01-01", "1900-01-01")
 
         # Calculate temperature trends
         temperature_trends = self._calculate_temperature_trends(df)

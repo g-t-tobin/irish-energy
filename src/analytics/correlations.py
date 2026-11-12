@@ -9,6 +9,7 @@ from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime
 from src.analytics.models import CorrelationAnalysisResult
 from src.analytics.data_access import GoldDataAccessor
+from loguru import logger
 
 class CorrelationAnalyzer:
     """Analyzer for weather-demand correlation analysis"""
@@ -67,8 +68,16 @@ class CorrelationAnalyzer:
         key_findings = self._generate_key_findings(pearson_corr, spearman_corr, len(merged_df))
 
         # Get date range
-        date_range = (merged_df['timestamp'].min().strftime('%Y-%m-%d'),
-                     merged_df['timestamp'].max().strftime('%Y-%m-%d'))
+        # Ensure timestamp is properly converted to datetime
+        try:
+            if not pd.api.types.is_datetime64_any_dtype(merged_df['timestamp']):
+                merged_df['timestamp'] = pd.to_datetime(merged_df['timestamp'])
+            date_range = (merged_df['timestamp'].min().strftime('%Y-%m-%d'),
+                          merged_df['timestamp'].max().strftime('%Y-%m-%d'))
+        except Exception as e:
+            # Fallback in case of timestamp conversion issues
+            logger.warning(f"Could not convert timestamps: {e}")
+            date_range = ("1900-01-01", "1900-01-01")
 
         return CorrelationAnalysisResult(
             dataset_names=['demand', 'weather'],

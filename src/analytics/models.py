@@ -152,13 +152,13 @@ class AnalyticalReport:
     dataset_references: List[str]
     date_range: Tuple[str, str]
     observation_count: int
-    calculation_timestamp: str
-    metrics: Dict[str, Any]
-    key_findings: List[str]
-    statistical_results: Dict[str, Any]
-    limitations: List[str]
-    data_quality_considerations: List[str]
-    calculation_parameters: Dict[str, Any]
+    calculation_timestamp: str = None
+    metrics: Dict[str, Any] = None
+    key_findings: List[str] = None
+    statistical_results: Dict[str, Any] = None
+    limitations: List[str] = None
+    data_quality_considerations: List[str] = None
+    calculation_parameters: Dict[str, Any] = None
 
     def __post_init__(self):
         if self.calculation_timestamp is None:

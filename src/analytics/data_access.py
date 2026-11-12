@@ -5,7 +5,7 @@ Data access utilities for analytics package
 import pandas as pd
 from typing import Optional, List, Dict, Any
 from datetime import datetime
-# from services.data_service import S3GoldDataRetriever
+from src.services.data_service import S3GoldDataRetriever
 from src.common.config import Config
 
 class GoldDataAccessor:
@@ -13,8 +13,13 @@ class GoldDataAccessor:
 
     def __init__(self, data_retriever: Optional[Any] = None):
         """Initialize with optional data retriever"""
-        # Mock initialization for testing purposes
-        self.data_retriever = data_retriever
+        # If no retriever provided, initialize default S3GoldDataRetriever
+        if data_retriever is None:
+            from src.services.data_service import S3GoldDataRetriever
+            from src.common.config import Config
+            self.data_retriever = S3GoldDataRetriever(Config())
+        else:
+            self.data_retriever = data_retriever
 
     def get_demand_data(self, start_date: Optional[str] = None, end_date: Optional[str] = None) -> pd.DataFrame:
         """Get demand data from Gold layer"""
