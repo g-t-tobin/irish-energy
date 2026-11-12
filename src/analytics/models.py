@@ -123,6 +123,29 @@ class StatisticalAnalysisResult:
             self.calculation_timestamp = datetime.now().isoformat()
 
 @dataclass
+class PeakDemandAnalysisResult:
+    """Result of peak demand analysis"""
+    dataset_name: str
+    date_range: Tuple[str, str]
+    highest_recorded_demand_mw: float
+    lowest_recorded_demand_mw: float
+    average_demand_mw: float
+    median_demand_mw: float
+    highest_demand_period: Dict[str, Any]
+    lowest_demand_period: Dict[str, Any]
+    daily_peak_demands: Dict[str, float]
+    weekly_peak_demands: Dict[str, float]
+    monthly_peak_demands: Dict[str, float]
+    peak_timing_analysis: Dict[str, Any]
+    demand_variability: Dict[str, float]
+    historical_comparisons: Dict[str, Any]
+    calculation_timestamp: str = None
+
+    def __post_init__(self):
+        if self.calculation_timestamp is None:
+            self.calculation_timestamp = datetime.now().isoformat()
+
+@dataclass
 class AnalyticalReport:
     """Structured analytical report"""
     report_name: str

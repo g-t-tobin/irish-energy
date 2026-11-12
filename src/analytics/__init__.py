@@ -9,10 +9,6 @@ import numpy as np
 from dataclasses import dataclass
 from enum import Enum
 
-# Import the data service to access Gold datasets
-from services.data_service import S3GoldDataRetriever
-from src.common.config import Config
-
 # Import models for type safety
 from src.analytics.models import (
     DemandAnalysisResult,
@@ -21,7 +17,8 @@ from src.analytics.models import (
     WeatherAnalysisResult,
     CorrelationAnalysisResult,
     StatisticalAnalysisResult,
-    AnalyticalReport
+    AnalyticalReport,
+    PeakDemandAnalysisResult
 )
 
 # Import data access utilities
