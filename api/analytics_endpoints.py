@@ -114,60 +114,10 @@ async def get_demand_peaks(start_date: str = None, end_date: str = None):
         raise HTTPException(status_code=500, detail=f"Error in peak demand analysis: {str(e)}")
 
 
-@app.get("/generation/mix", response_model=Dict[str, Any])
-async def get_generation_mix(start_date: str = None, end_date: str = None):
-    """
-    Get generation mix analysis
-
-    Args:
-        start_date: Start date in YYYY-MM-DD format (optional)
-        end_date: End date in YYYY-MM-DD format (optional)
-    """
-    try:
-        result = generation_analyzer.analyze_generation(start_date, end_date)
-        return {
-            "dataset_name": result.dataset_name,
-            "date_range": result.date_range,
-            "total_generation_mw": result.total_generation_mw,
-            "renewable_generation_mw": result.renewable_generation_mw,
-            "fossil_generation_mw": result.fossil_generation_mw,
-            "nuclear_generation_mw": result.nuclear_generation_mw,
-            "generation_mix": result.generation_mix,
-            "daily_trends": result.daily_trends,
-            "monthly_trends": result.monthly_trends,
-            "fuel_type_breakdown": result.fuel_type_breakdown,
-            "calculation_timestamp": result.calculation_timestamp
-        }
-    except Exception as e:
-        logger.error(f"Error in generation mix analysis: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error in generation analysis: {str(e)}")
 
 
-@app.get("/generation/renewables", response_model=Dict[str, Any])
-async def get_renewable_analysis(start_date: str = None, end_date: str = None):
-    """
-    Get renewable energy analysis
 
-    Args:
-        start_date: Start date in YYYY-MM-DD format (optional)
-        end_date: End date in YYYY-MM-DD format (optional)
-    """
-    try:
-        result = renewable_analyzer.analyze_renewables(start_date, end_date)
-        return {
-            "dataset_name": result.dataset_name,
-            "date_range": result.date_range,
-            "renewable_generation_mw": result.renewable_generation_mw,
-            "total_generation_mw": result.total_generation_mw,
-            "renewable_share_percentage": result.renewable_share_percentage,
-            "renewable_trends": result.renewable_trends,
-            "seasonal_contribution": result.seasonal_contribution,
-            "peak_renewable_periods": result.peak_renewable_periods,
-            "calculation_timestamp": result.calculation_timestamp
-        }
-    except Exception as e:
-        logger.error(f"Error in renewable analysis: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error in renewable analysis: {str(e)}")
+
 
 
 @app.get("/weather/summary", response_model=Dict[str, Any])
@@ -199,7 +149,6 @@ async def get_weather_summary(start_date: str = None, end_date: str = None):
         raise HTTPException(status_code=500, detail=f"Error in weather analysis: {str(e)}")
 
 
-@app.get("/weather-demand/correlation", response_model=Dict[str, Any])
 async def get_weather_demand_correlation(start_date: str = None, end_date: str = None):
     """
     Get weather-demand correlation analysis
