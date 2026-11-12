@@ -8,7 +8,7 @@ from models.frontend_compatibility import (
     convert_api_to_frontend_generation, convert_api_to_frontend_quality,
     convert_api_to_frontend_summary
 )
-from services.data_service import (
+from src.services.data_service import (
     GoldDataAccessError, GoldDataNotFoundError, GoldDataParseError,
     GoldDataValidationError, S3GoldDataRetriever
 )

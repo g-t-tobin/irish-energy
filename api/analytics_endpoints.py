@@ -149,29 +149,7 @@ async def get_weather_summary(start_date: str = None, end_date: str = None):
         raise HTTPException(status_code=500, detail=f"Error in weather analysis: {str(e)}")
 
 
-async def get_weather_demand_correlation(start_date: str = None, end_date: str = None):
-    """
-    Get weather-demand correlation analysis
 
-    Args:
-        start_date: Start date in YYYY-MM-DD format (optional)
-        end_date: End date in YYYY-MM-DD format (optional)
-    """
-    try:
-        result = correlation_analyzer.analyze_correlations(start_date, end_date)
-        return {
-            "dataset_names": result.dataset_names,
-            "date_range": result.date_range,
-            "pearson_correlation": result.pearson_correlation,
-            "spearman_correlation": result.spearman_correlation,
-            "sample_size": result.sample_size,
-            "correlation_strength": result.correlation_strength,
-            "key_findings": result.key_findings,
-            "calculation_timestamp": result.calculation_timestamp
-        }
-    except Exception as e:
-        logger.error(f"Error in weather-demand correlation analysis: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error in correlation analysis: {str(e)}")
 
 
 @app.get("/statistics", response_model=Dict[str, Any])

@@ -5,7 +5,7 @@ Data access utilities for forecasting package
 import pandas as pd
 from typing import Optional, List, Dict, Any
 from datetime import datetime
-from services.data_service import S3GoldDataRetriever
+from src.services.data_service import S3GoldDataRetriever
 from src.common.config import Config
 from src.analytics.data_access import GoldDataAccessor
 
